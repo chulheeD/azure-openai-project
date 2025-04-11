@@ -19,6 +19,8 @@ import crypto from 'crypto';
 const STORAGE_ACCOUNT_NAME = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const STORAGE_ACCOUNT_KEY = process.env.AZURE_STORAGE_ACCOUNT_KEY;
 const TABLE_NAME = process.env.AZURE_TABLE_NAME || 'LogHistory';
+const crypto = require('crypto');
+const { TableClient } = require("@azure/data-tables");
 
 const credential = new AzureNamedKeyCredential(STORAGE_ACCOUNT_NAME, STORAGE_ACCOUNT_KEY);
 const tableClient = new TableClient(
@@ -27,51 +29,91 @@ const tableClient = new TableClient(
   credential
 );
 
+function getLogHash(log) {
+  const { timestamp, createdAt, ...rest } = log; // 시간 항목 제거
+  const logText = JSON.stringify(rest);
+  return crypto.createHash('sha256').update(logText).digest('hex');
+}
+
+// Azure Table Storage에서 전체 logHash 필드 수집 (중복 제거용)
+async function getStoredLogHashes() {
+  const logHashSet = new Set();
+
+  // 전체 엔터티를 쿼리해서 logHash만 Set에 추가
+  const entities = tableClient.listEntities({
+    queryOptions: {
+      select: ['logHash'],
+    },
+  });
+
+  for await (const entity of entities) {
+    if (entity.logHash) {
+      logHashSet.add(entity.logHash);
+    }
+  }
+
+  return logHashSet; // Set<string>
+}
+
+
+async function analyzeLogs(logData) {
+  const MAX_LOG_TEXT_LENGTH = 5000;
+  const MAX_SNIPPET_LENGTH = 1000;
+
+  // 1. 기존 로그 해시 수집
+  const storedHashes = await getStoredLogHashes();
+
+  // 2. 각 로그별 신규 여부 판단 + 신규이면 Table Storage 저장
+  const logsWithHistoryCheck = await Promise.all(
+    logData.logs.map(async (log) => {
+      const logHash = crypto.createHash('sha256')
+        .update(JSON.stringify(log))
+        .digest('hex');
+
+      const isNew = !storedHashes.has(logHash);
+
+      if (isNew) {
+        try {
+          await tableClient.createEntity({
+            partitionKey: new Date().toISOString().slice(0, 10),
+            rowKey: crypto.randomUUID(),
+            createdAt: new Date().toISOString(),
+            logText: JSON.stringify(log).slice(0, MAX_LOG_TEXT_LENGTH),
+            logHash: logHash,
+            isNew: true,
+            snippet: log.snippet?.slice(0, MAX_SNIPPET_LENGTH) || '',
+            message: log.message || '',
+            level: log.level || '',
+            url: log.url || '',
+          });
+        } catch (e) {
+          console.error("❌ Entity 저장 중 오류:", e.message);
+        }
+      }
+
+      return { ...log, logHash, _isNew: isNew };
+    })
+  );
+
+  return logsWithHistoryCheck;
+}
+
+
 app.http('logger_analyze', {
   methods: ['POST'],
   authLevel: 'function',
   handler: async (request, context) => {
     try {
+
       const logData = await request.json();
       if (!logData || !Array.isArray(logData.logs)) {
-        return {
-          status: 400,
-          body: { error: "logs 필드가 없거나 배열이 아닙니다." },
+        return { 
+          status: 400, 
+          body: { error: 'logs 필드가 없거나 배열이 아닙니다.' } 
         };
       }
 
-      // 로그 해시 기반 신규 여부 판단
-      const logsWithHistoryCheck = await Promise.all(
-        logData.logs.map(async (log) => {
-          const hash = crypto.createHash('sha256').update(JSON.stringify(log)).digest('hex');
-          const partitionKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-          const rowKey = hash;
-          let isNew = false;
-
-          try {
-            await tableClient.getEntity(partitionKey, rowKey);
-          } catch (e) {
-            if (e.statusCode === 404) {
-
-              const MAX_LOG_TEXT_LENGTH = 5000;
-              const MAX_SNIPPET_LENGTH = 1000;
-              isNew = true;
-
-              await tableClient.createEntity({
-                partitionKey,
-                rowKey,
-                createdAt: new Date().toISOString(),
-                message: log.message || '',
-                level: log.level || '',
-                url: log.url || '',
-                snippet: log.snippet?.slice(0, MAX_SNIPPET_LENGTH) || '', // 길이 제한
-                logText: JSON.stringify(log).slice(0, MAX_LOG_TEXT_LENGTH), // 길이 제한
-              });
-            }
-          }
-          return { ...log, _isNew: isNew };
-        })
-      );
+      const logsWithHistoryCheck = await analyzeLogs(logData);
 
       const logContent = JSON.stringify(logsWithHistoryCheck, null, 2);
       const openaiUrl = `${process.env.OPENAI_ENDPOINT}/openai/deployments/${process.env.OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-05-01-preview`;
