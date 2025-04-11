@@ -31,13 +31,11 @@ async function getStoredLogHashes() {
       select: ['logHash'],
     },
   });
-
   for await (const entity of entities) {
     if (entity.logHash) {
       logHashSet.add(entity.logHash);
     }
   }
-
   return logHashSet; // Set<string>
 }
 
@@ -100,7 +98,6 @@ app.http('logger_analyze', {
       }
 
       const logsWithHistoryCheck = await analyzeLogs(logData);
-
       const logContent = JSON.stringify(logsWithHistoryCheck, null, 2);
       const openaiUrl = `${process.env.OPENAI_ENDPOINT}/openai/deployments/${process.env.OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-05-01-preview`;
 
