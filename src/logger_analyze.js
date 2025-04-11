@@ -1,16 +1,3 @@
-// Azure Function: logger_analyze/index.js
-// Description: This function analyzes logs and sends the analysis to a Teams channel via a webhook.
-// It uses OpenAI's API to generate the analysis and stores logs in Azure Table Storage to check for new logs.  
-// It also uses the Azure Functions SDK, Axios for HTTP requests, and the Azure Data Tables SDK for interacting with Azure Table Storage.
-// The function is triggered by an HTTP request and requires authentication.
-// It expects a JSON payload with a "logs" field, which is an array of log objects. Each log object can contain various properties like message, level, url, and snippet.
-// The function checks if the logs are new by creating a hash of each log object and checking if it exists in the Azure Table Storage.
-// If the log is new, it stores it in the table with a timestamp and other relevant information.
-// After processing the logs, it sends the analysis result to a Teams channel using a webhook URL.
-// The analysis is done by sending a request to OpenAI's API with a specific prompt and the logs data.
-// The function handles errors gracefully and returns appropriate HTTP status codes and messages.
-// It also logs the process for debugging purposes.
-// Import necessary modules and packages
 import { app } from '@azure/functions';
 import axios from 'axios';
 import { TableClient, AzureNamedKeyCredential } from '@azure/data-tables';
@@ -20,7 +7,6 @@ const STORAGE_ACCOUNT_NAME = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const STORAGE_ACCOUNT_KEY = process.env.AZURE_STORAGE_ACCOUNT_KEY;
 const TABLE_NAME = process.env.AZURE_TABLE_NAME || 'LogHistory';
 const crypto = require('crypto');
-const { TableClient } = require("@azure/data-tables");
 
 const credential = new AzureNamedKeyCredential(STORAGE_ACCOUNT_NAME, STORAGE_ACCOUNT_KEY);
 const tableClient = new TableClient(
