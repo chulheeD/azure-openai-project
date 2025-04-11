@@ -6,7 +6,6 @@ import crypto from 'crypto';
 const STORAGE_ACCOUNT_NAME = process.env.AZURE_STORAGE_ACCOUNT_NAME;
 const STORAGE_ACCOUNT_KEY = process.env.AZURE_STORAGE_ACCOUNT_KEY;
 const TABLE_NAME = process.env.AZURE_TABLE_NAME || 'LogHistory';
-const crypto = require('crypto');
 
 const credential = new AzureNamedKeyCredential(STORAGE_ACCOUNT_NAME, STORAGE_ACCOUNT_KEY);
 const tableClient = new TableClient(
@@ -23,20 +22,32 @@ function getLogHash(log) {
 
 // Azure Table Storage에서 전체 logHash 필드 수집 (중복 제거용)
 async function getStoredLogHashes() {
+
   const logHashSet = new Set();
 
-  // 전체 엔터티를 쿼리해서 logHash만 Set에 추가
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const todayKey = today.toISOString().slice(0, 10);
+  const yesterdayKey = yesterday.toISOString().slice(0, 10);
+
+  // 파티션 키를 기준으로 필터 (OR 조건)
+  const filter = `(PartitionKey eq '${todayKey}' or PartitionKey eq '${yesterdayKey}')`;
+
   const entities = tableClient.listEntities({
     queryOptions: {
+      filter,
       select: ['logHash'],
     },
   });
+
   for await (const entity of entities) {
     if (entity.logHash) {
       logHashSet.add(entity.logHash);
     }
   }
-  return logHashSet; // Set<string>
+  return logHashSet; 
 }
 
 
@@ -50,9 +61,7 @@ async function analyzeLogs(logData) {
   // 2. 각 로그별 신규 여부 판단 + 신규이면 Table Storage 저장
   const logsWithHistoryCheck = await Promise.all(
     logData.logs.map(async (log) => {
-      const logHash = crypto.createHash('sha256')
-        .update(JSON.stringify(log))
-        .digest('hex');
+      const logHash = getLogHash(log); 
 
       const isNew = !storedHashes.has(logHash);
 
@@ -90,10 +99,11 @@ app.http('logger_analyze', {
     try {
 
       const logData = await request.json();
-      if (!logData || !Array.isArray(logData.logs)) {
-        return { 
-          status: 400, 
-          body: { error: 'logs 필드가 없거나 배열이 아닙니다.' } 
+
+      if (!logData || !Array.isArray(logData.logs) || logData.logs.length === 0) {
+        return {
+          status: 400,
+          body: { error: "logs 필드가 없거나 배열이 아닙니다." },
         };
       }
 
