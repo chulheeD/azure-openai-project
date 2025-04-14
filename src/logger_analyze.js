@@ -92,27 +92,27 @@ async function analyzeLogs(logData) {
   return logsWithHistoryCheck;
 }
 
-const saveToBlob = async (text, filename) => {
+const saveToBlob = async (text) => {
   if (text == null) {
     throw new Error("❌ 저장할 text가 undefined 또는 null입니다.");
   }
 
-  const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const CONTAINER_NAME = "console-log-summaries";
+  //const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  // const CONTAINER_NAME = "console-log-summaries";
 
-  const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+  // const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+  // const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
-  await containerClient.createIfNotExists();
+  // await containerClient.createIfNotExists();
 
-  const blobName = filename || `summary_result_${Date.now()}.txt`;
-  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+  // const blobName = `summary_result_${Date.now()}.txt`;
+  // const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-  const content = typeof text === "string" ? text : JSON.stringify(text, null, 2);
+  // const content = typeof text === "string" ? text : JSON.stringify(text, null, 2);
 
-  await blockBlobClient.upload(content, Buffer.byteLength(content), {
-    blobHTTPHeaders: { blobContentType: "text/plain" },
-  });
+  // await blockBlobClient.upload(content, Buffer.byteLength(content), {
+  //   blobHTTPHeaders: { blobContentType: "text/plain" },
+  // });
 
   return blobName;
 };
