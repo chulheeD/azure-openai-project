@@ -1,5 +1,5 @@
 import { app } from '@azure/functions';
-import { BlobServiceClient } from "@azure/storage-blob";
+//import { BlobServiceClient } from "@azure/storage-blob";
 import axios from 'axios';
 import { TableClient, AzureNamedKeyCredential } from '@azure/data-tables';
 import crypto from 'crypto';
@@ -92,30 +92,30 @@ async function analyzeLogs(logData) {
   return logsWithHistoryCheck;
 }
 
-const saveToBlob = async (text) => {
-  if (text == null) {
-    throw new Error("❌ 저장할 text가 undefined 또는 null입니다.");
-  }
+// const saveToBlob = async (text) => {
+//   if (text == null) {
+//     throw new Error("❌ 저장할 text가 undefined 또는 null입니다.");
+//   }
 
-  const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  const CONTAINER_NAME = "console-log-summaries";
+//   const AZURE_STORAGE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING;
+//   const CONTAINER_NAME = "console-log-summaries";
 
-  const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
-  const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
+//   const blobServiceClient = BlobServiceClient.fromConnectionString(AZURE_STORAGE_CONNECTION_STRING);
+//   const containerClient = blobServiceClient.getContainerClient(CONTAINER_NAME);
 
-  await containerClient.createIfNotExists();
+//   await containerClient.createIfNotExists();
 
-  const blobName = `summary_result_${Date.now()}.txt`;
-  const blockBlobClient = containerClient.getBlockBlobClient(blobName);
+//   const blobName = `summary_result_${Date.now()}.txt`;
+//   const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-  const content = typeof text === "string" ? text : JSON.stringify(text, null, 2);
+//   const content = typeof text === "string" ? text : JSON.stringify(text, null, 2);
 
-  await blockBlobClient.upload(content, Buffer.byteLength(content), {
-    blobHTTPHeaders: { blobContentType: "text/plain" },
-  });
+//   await blockBlobClient.upload(content, Buffer.byteLength(content), {
+//     blobHTTPHeaders: { blobContentType: "text/plain" },
+//   });
 
-  return blobName;
-};
+//   return blobName;
+// };
 
 
 
@@ -294,11 +294,10 @@ app.http('logger_analyze', {
         } catch (err) {
           context.log("❌ Teams 전송 실패:", err.message);
         }
-
-        // ✅ Blob 저장
+      
         try {
           //const savedBlob = await saveToBlob(result);
-          context.log(`☁️ Blob Storage 저장 완료: ${savedBlob}`);
+          //context.log(`☁️ Blob Storage 저장 완료: ${savedBlob}`);
         } catch (err) {
           context.log("❌ Blob 저장 실패:", err.message);
         }
