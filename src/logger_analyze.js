@@ -56,10 +56,9 @@ async function analyzeLogs(logData) {
   const MAX_LOG_TEXT_LENGTH = 5000;
   const MAX_SNIPPET_LENGTH = 1000;
 
-  // 1. 기존 로그 해시 수집
+
   const storedHashes = await getStoredLogHashes();
 
-  // 2. 각 로그별 신규 여부 판단 + 신규이면 Table Storage 저장
   const logsWithHistoryCheck = await Promise.all(
     logData.logs.map(async (log) => {
       const logHash = getLogHash(log); 
@@ -176,8 +175,9 @@ app.http('logger_analyze', {
           당신은 로그의 실무 중요도를 평가하는 전문가입니다.
                역할: User로 부터 식별 된 전체 로그들에 대한 다음 항목을 작성하세요:
           1. 실제 사이트 기능 또는 사용자 경험에 미치는 영향
-          2. 중요도 별점[위험도, 사용자 경험에 미치는 영향, 발생빈도 기반으로 5점 만점으로 소수점 첫째 자리까지 산정하세요. Code(snippet)이 있는 경우 0.6점 가산하고 신규로그 일 경우 1점 가산하시오.]
-               평가 이유는 실제 프론트 UI/UX 관점에서 기술적으로 상세히 설명하세요.
+          2. 중요도 별점[위험도, 사용자 경험에 미치는 영향, 발생빈도 기반으로 5점 만점으로 소수점 첫째 자리까지 산정하세요. 
+             Code(snippet)이 있는 경우 0.6점 가산하고 신규로그 일 경우 1점 가산하시오.]
+             평가 이유는 실제 프론트 UI/UX 관점에서 기술적으로 상세히 설명하세요.
           `
           },
           {
@@ -202,7 +202,8 @@ app.http('logger_analyze', {
                역할: 위 assistant가 선정한 가장 중요도가 높은 하나의 로그에 대해서만 다음 내용을 제안하세요:
           1. 즉각적인 대응 방안 (예: 리소스 경로 점검, CDN 캐시 무효화 등)
           2. 예방을 위한 프론트/백엔드 코드 개선 방안
-          3. 대응 예시 (CSS 설정, JS fallback 등 실제 코드로 표현, Code(snippet)이 있다면 해당 부분을 수정하세요.)
+          3. 소스 수정 
+            (CSS 설정, JS fallback 등 실제 코드로 표현, Code(snippet)이 있다면 해당 부분을 수정하고 에러가 발생한 부분 외에도 snippet 결과 전체에 대해 수정이 필요한 부분은 추가로 수정하세요.)
                실무자가 보고 바로 이해할 수 있게 명확하고 구체적으로 기술하세요.
           `
           },
@@ -216,7 +217,7 @@ app.http('logger_analyze', {
              ※ 발생 위치 앞 중요도	이모지	예시 표현
                - 4.5점 이상:🔥
                - 4점 이상:⚠️	
-               - 3.5점 이상:ℹ️
+               - 3.5점 이상:ℹ️ 
     
     
           Format은 아래와 같습니다.
